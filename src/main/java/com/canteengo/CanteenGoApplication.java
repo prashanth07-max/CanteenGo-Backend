@@ -14,13 +14,26 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
+import org.springframework.context.ApplicationListener;
+
 @SpringBootApplication
 public class CanteenGoApplication {
 
     private static final Logger log = LoggerFactory.getLogger(CanteenGoApplication.class);
 
     public static void main(String[] args) {
-        SpringApplication.run(CanteenGoApplication.class, args);
+        SpringApplication app = new SpringApplication(CanteenGoApplication.class);
+        app.addListeners((ApplicationListener<ApplicationEnvironmentPreparedEvent>) event -> {
+            String url = event.getEnvironment().getProperty("spring.datasource.url");
+            String user = event.getEnvironment().getProperty("spring.datasource.username");
+            if (url != null) {
+                String safeUrl = url.replaceAll("(?i)(password=)[^&;]*", "$1***");
+                log.info("Active Target Database URL: {}", safeUrl);
+                log.info("Active Target Database User: {}", user);
+            }
+        });
+        app.run(args);
     }
 
     @Bean
