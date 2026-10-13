@@ -22,7 +22,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         if ("OPTIONS".equalsIgnoreCase(req.getMethod())) return true;
         String path = req.getRequestURI();
         if (path.startsWith("/api/auth/")) return true;
-        if ("GET".equalsIgnoreCase(req.getMethod()) && path.equals("/api/foods")) return true;
+        if ("GET".equalsIgnoreCase(req.getMethod()) && (path.equals("/api/foods") || path.equals("/api/health") || path.equals("/health"))) return true;
 
         String header = req.getHeader("Authorization");
         User user = null;
