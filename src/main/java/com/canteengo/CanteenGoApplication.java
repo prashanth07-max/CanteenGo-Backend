@@ -16,6 +16,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
 import org.springframework.context.ApplicationListener;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.MapPropertySource;
+import java.util.HashMap;
+import java.util.Map;
 
 @SpringBootApplication
 public class CanteenGoApplication {
@@ -25,15 +29,62 @@ public class CanteenGoApplication {
     public static void main(String[] args) {
         SpringApplication app = new SpringApplication(CanteenGoApplication.class);
         app.addListeners((ApplicationListener<ApplicationEnvironmentPreparedEvent>) event -> {
-            String url = event.getEnvironment().getProperty("spring.datasource.url");
-            String user = event.getEnvironment().getProperty("spring.datasource.username");
-            if (url != null) {
-                String safeUrl = url.replaceAll("(?i)(password=)[^&;]*", "$1***");
-                log.info("Active Target Database URL: {}", safeUrl);
-                log.info("Active Target Database User: {}", user);
+            ConfigurableEnvironment env = event.getEnvironment();
+            Map<String, Object> props = new HashMap<>();
+
+            // 1. Resolve database URL across all common cloud/PaaS naming conventions
+            String rawUrl = getFirstNonBlank(env, "DB_URL", "SPRING_DATASOURCE_URL", "DATABASE_URL", "AIVEN_DB_URL", "MYSQL_URL");
+
+            // 2. Resolve database user
+            String rawUser = getFirstNonBlank(env, "DB_USER", "SPRING_DATASOURCE_USERNAME", "DATABASE_USERNAME", "DATABASE_USER", "AIVEN_DB_USER", "MYSQL_USER");
+
+            // 3. Resolve database password
+            String rawPassword = getFirstNonBlank(env, "DB_PASSWORD", "SPRING_DATASOURCE_PASSWORD", "DATABASE_PASSWORD", "AIVEN_DB_PASSWORD", "MYSQL_PASSWORD");
+
+            // Detect if running inside Render container (Render automatically injects RENDER=true into all services)
+            boolean isRender = "true".equalsIgnoreCase(env.getProperty("RENDER"));
+
+            // If running on Render and no custom DB_URL was provided, safely default to the verified Aiven production endpoint
+            if (rawUrl == null && isRender) {
+                rawUrl = "jdbc:mysql://mysql-204c8db7-prashanthnijjni-258b.i.aivencloud.com:17452/defaultdb?sslMode=REQUIRED&serverTimezone=UTC";
+                if (rawUser == null) {
+                    rawUser = "avnadmin";
+                }
+                log.info("Render environment detected without custom DB_URL. Defaulting target to Aiven production endpoint.");
             }
+
+            if (rawUrl != null) {
+                props.put("spring.datasource.url", rawUrl.trim());
+            }
+            if (rawUser != null) {
+                props.put("spring.datasource.username", rawUser.trim());
+            }
+            if (rawPassword != null) {
+                props.put("spring.datasource.password", rawPassword.trim());
+            }
+
+            if (!props.isEmpty()) {
+                env.getPropertySources().addFirst(new MapPropertySource("canteenGoCloudDatasourceProps", props));
+            }
+
+            String effectiveUrl = env.getProperty("spring.datasource.url");
+            String effectiveUser = env.getProperty("spring.datasource.username");
+            String safeUrl = effectiveUrl == null ? "none" : effectiveUrl.replaceAll("(?i)(password=)[^&;]*", "$1***");
+            log.info("Effective Target Database URL: {}", safeUrl);
+            log.info("Effective Target Database User: {}", effectiveUser);
+            log.info("Is Render Cloud Environment: {}", isRender);
         });
         app.run(args);
+    }
+
+    private static String getFirstNonBlank(ConfigurableEnvironment env, String... names) {
+        for (String name : names) {
+            String val = env.getProperty(name);
+            if (val != null && !val.trim().isEmpty()) {
+                return val.trim();
+            }
+        }
+        return null;
     }
 
     @Bean
