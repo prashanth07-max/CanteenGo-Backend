@@ -1,0 +1,21 @@
+# Build output (NOT ignored before; already tracked files stay tracked until you
+# explicitly run `git rm -r --cached target` - this file alone changes nothing for them).
+target/
+
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS / logs
+.DS_Store
+Thumbs.db
+*.log

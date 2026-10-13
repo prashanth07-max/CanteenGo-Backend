@@ -1,0 +1,29 @@
+# Build output (rebuilt inside the image)
+target/
+
+# Git metadata
+.git/
+.gitignore
+
+# Docker / docs
+Dockerfile
+.dockerignore
+*.md
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+*.swp
+
+# OS / logs / env
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
